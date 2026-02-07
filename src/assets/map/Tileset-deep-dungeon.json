@@ -1,14 +1,15 @@
-{ "columns":64,
- "image":"Tileset-deep-dungeon.png",
- "imageheight":2048,
- "imagewidth":1024,
- "margin":0,
- "name":"Tileset-deep-dungeon",
- "spacing":0,
- "tilecount":8192,
- "tiledversion":"1.11.2",
- "tileheight":16,
- "tilewidth":16,
- "type":"tileset",
- "version":"1.10"
-}
+[
+  {
+    "columns": 64,
+    "firstgid": 1,
+    "image": "Tileset-deep-dungeon.png",
+    "imageheight": 2048,
+    "imagewidth": 1024,
+    "margin": 0,
+    "name": "Sunnyside V3",
+    "spacing": 0,
+    "tilecount": 8192,
+    "tileheight": 16,
+    "tilewidth": 16
+  }
+]

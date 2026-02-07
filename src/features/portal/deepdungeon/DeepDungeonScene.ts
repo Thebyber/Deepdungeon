@@ -1,4 +1,5 @@
 import mapJson from "assets/map/DeepDungeonMap1.json";
+import tilesetconfig from "assets/map/Tileset-deep-dungeon.json";
 import { SceneId } from "features/world/mmoMachine";
 import { BaseScene, NPCBumpkin } from "features/world/scenes/BaseScene";
 import { MachineInterpreter } from "./lib/portalMachine";
@@ -20,6 +21,8 @@ export class DeepDungeonScene extends BaseScene {
       name: "deep_dungeon",
       map: {
         json: mapJson,
+        imageKey: "Tileset-deep-dungeon",
+        defaultTilesetConfig: tilesetconfig,
       },
       audio: { fx: { walk_key: "dirt_footstep" } },
     });
@@ -35,8 +38,6 @@ export class DeepDungeonScene extends BaseScene {
     });
 
     super.create();
-
-    this.initialiseNPCs(NPCS);
   }
 
   public get portalService() {

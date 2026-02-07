@@ -43,10 +43,7 @@ export abstract class Preloader extends Phaser.Scene {
         `${CONFIG.PROTECTED_IMAGE_URL}/world/map-extruded.png`,
       );
       // Phaser assets must be served from an URL
-      this.load.image(
-        "DeepDungeonTileset",
-        `${CONFIG.PROTECTED_IMAGE_URL}/world/Tileset-deep-dungeon-extruded.png`,
-      );
+      this.load.image("Tileset-deep-dungeon", "world/Tileset-deep-dungeon.png");
 
       this.load.image(
         "seasonal-tileset",

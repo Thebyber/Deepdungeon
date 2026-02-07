@@ -1,11 +1,7 @@
 import React from "react";
 
-import { PortalProvider } from "./example/lib/PortalProvider";
-import { Ocean } from "features/world/ui/Ocean";
-
+import { PortalProvider } from "./deepdungeon/lib/PortalProvider";
 import { WalletProvider } from "features/wallet/WalletProvider";
-
-import { PortalExample } from "./example/PortalExample";
 import { DeepDungeon } from "./deepdungeon/DeepDungeon";
 
 export const PortalApp: React.FC = () => {
@@ -14,9 +10,7 @@ export const PortalApp: React.FC = () => {
     <WalletProvider>
       {/* PortalProvider - gives you access to a xstate machine which handles state management */}
       <PortalProvider>
-          
-          <DeepDungeon/>
-        
+        <DeepDungeon />
       </PortalProvider>
     </WalletProvider>
   );

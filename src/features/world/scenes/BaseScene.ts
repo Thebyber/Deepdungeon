@@ -1288,8 +1288,8 @@ export abstract class BaseScene extends Phaser.Scene {
       imageKey,
       16,
       16,
-      1,
-      2,
+      0,
+      0,
     ) as Phaser.Tilemaps.Tileset;
 
     // Set up collider layers
