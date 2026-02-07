@@ -34,7 +34,7 @@ export const SPAWNS: () => SpawnLocation = () => ({
       y: 450 - randomYOffset,
     },
   },
-   deep_dungeon: {
+  deep_dungeon: {
     default: {
       x: 272,
       y: 132,
