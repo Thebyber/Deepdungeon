@@ -20,6 +20,7 @@ import { KNOWN_IDS } from "features/game/types";
 import { getTradeableDisplay } from "features/marketplace/lib/tradeables";
 import { PLAYER_DAMAGE } from "features/portal/deepdungeon/DeepDungeonConstants";
 import { onAnimationComplete } from "features/portal/deepdungeon/DeepDungeonConstants";
+import { EventBus } from "features/portal/deepdungeon/lib/EventBus";
 
 const NAME_ALIASES: Partial<Record<NPCName, string>> = {
   "pumpkin' pete": "pete",
@@ -440,7 +441,6 @@ export class BumpkinContainer extends Phaser.GameObjects.Container {
         this.createAttackAnimation();
         attackLoader.removeAllListeners();
       });
-      //console.log("Animación 'attack' lista para usar");
     }
 
     // Mining
@@ -1501,7 +1501,7 @@ export class BumpkinContainer extends Phaser.GameObjects.Container {
           () => {
             this.isAttacking = false;
             //this.enableSword(false);
-            //EventBus.emit("animation-attack-completed");
+            EventBus.emit("animation-attack-completed");
           },
         );
       } catch (e) {
@@ -1529,7 +1529,7 @@ export class BumpkinContainer extends Phaser.GameObjects.Container {
           () => {
             this.isMining = false;
             // this.enablePickaxe(false);
-            //EventBus.emit("animation-mining-completed");
+            EventBus.emit("animation-mining-completed");
           },
         );
       } catch (e) {

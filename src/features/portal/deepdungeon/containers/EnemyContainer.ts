@@ -35,11 +35,11 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     this.spriteBody.setOrigin(0.5, 0.5);
     this.spriteBody.setY(0); // Prueba con -4 o -8 para centrarlo visualmente en el tile
     this.add(this.spriteBody);
-    this.playAnimation("idle");
+    this.playAnimationEnemies("idle");
     this.scene.add.existing(this);
   }
 
-  private playAnimation(state: "idle" | "walk" | "attack" | "hurt") {
+  private playAnimationEnemies(state: "idle" | "walk" | "attack" | "hurt") {
     const name = this.enemyType.toLowerCase(); // "skeleton"
     const key = `${name}_${state}_anim`;
 
@@ -109,7 +109,7 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
 
   private move(dx: number, dy: number) {
     this.isMoving = true;
-    this.playAnimation("walk");
+    this.playAnimationEnemies("walk");
 
     this.scene.tweens.add({
       targets: this,
@@ -119,23 +119,22 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
       ease: "Linear",
       onComplete: () => {
         this.isMoving = false;
-        this.playAnimation("idle");
+        this.playAnimationEnemies("idle");
       },
     });
   }
   // El enemigo recibe daño
   public takeDamage(amount: number) {
     if (this.isMoving) return; // Evitar bugs si ya está en una animación
-
     this.isMoving = true;
-    this.playAnimation("hurt");
+    this.playAnimationEnemies("hurt");
     // Flash rojo para feedback visual inmediato
     this.spriteBody.setTint(0xff0000);
 
     this.spriteBody.once("animationcomplete", () => {
       this.spriteBody.clearTint();
       this.isMoving = false;
-      this.playAnimation("idle");
+      this.playAnimationEnemies("idle");
       // Aquí podrías restar vida: this.hp -= amount;
       //console.log("Enemigo herido, vuelve a idle");
     });
@@ -145,14 +144,14 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
   public attackPlayer() {
     if (this.isMoving) return;
     this.isMoving = true;
-    this.playAnimation("attack");
+    this.playAnimationEnemies("attack");
 
     this.spriteBody.once("animationcomplete", () => {
       if (this.player) {
         const p = this.player as any;
         const visual = p.sprite || p.list?.[0];
         // Animación de daño al recibir el golpe
-        if (p.playAnimation) p.playAnimation("hurt");
+        if (p.playAnimation) p.playAnimationEnemies("hurt");
 
         // Flash rojo de daño en el sprite visual
         if (visual && visual.setTint) {
@@ -161,7 +160,7 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
         }
       }
       this.isMoving = false;
-      this.playAnimation("idle");
+      this.playAnimationEnemies("idle");
     });
   }
 }

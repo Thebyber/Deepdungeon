@@ -5,6 +5,8 @@ import { BaseScene, NPCBumpkin } from "features/world/scenes/BaseScene";
 import { GridMovement } from "./lib/GridMovement";
 import { ENEMY_TYPES, EnemyType } from "./lib/Enemies";
 import { EnemyContainer } from "./containers/EnemyContainer";
+import { AnimationKeys } from "./DeepDungeonConstants";
+//import { ANIMATION } from "features/world/lib/animations";
 
 export const NPCS: NPCBumpkin[] = [
   {
@@ -133,9 +135,6 @@ export class DeepDungeonScene extends BaseScene {
     if (body) {
       body.setVelocity(0, 0);
     }
-    this.loadBumpkinAnimations();
-    super.update();
-
     if (this.cursorKeys) {
       // Pasamos las teclas como un Record para evitar conflictos de tipos
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,11 +146,20 @@ export class DeepDungeonScene extends BaseScene {
       this.cursorKeys.up.isDown = false;
       this.cursorKeys.down.isDown = false;
     }
+    this.loadBumpkinAnimations();
+    super.update();
   }
   private loadBumpkinAnimations() {
     if (!this.currentPlayer) return;
     if (!this.cursorKeys) return;
-    //const itemBumpkinX = this.currentPlayer.directionFacing === "left" ? -1 : 1;
-    //let animation!: AnimationKeys;
+    let animation!: AnimationKeys;
+    if (
+      !this.currentPlayer.isHurting &&
+      !this.currentPlayer.isAttacking &&
+      !this.currentPlayer.isMining
+    ) {
+      animation = "idle";
+    }
+    this.currentPlayer?.[animation]?.();
   }
 }

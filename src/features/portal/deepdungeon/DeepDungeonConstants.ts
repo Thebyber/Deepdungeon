@@ -4,8 +4,7 @@ export type AnimationKeys =
   | "carry"
   | "carryIdle"
   | "attack"
-  | "mining"
-  | "enableFire";
+  | "mining";
 
 export const PLAYER_DAMAGE = 1;
 

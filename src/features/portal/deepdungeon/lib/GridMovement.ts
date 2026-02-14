@@ -1,6 +1,11 @@
 import { BumpkinContainer } from "src/features/world/containers/BumpkinContainer";
 import { PlayerState } from "../lib/playerState";
 
+interface AttackableBumpkin extends BumpkinContainer {
+  attack: () => void;
+  sprite: Phaser.GameObjects.Sprite;
+}
+
 export class GridMovement {
   private scene: Phaser.Scene;
   private currentPlayer: BumpkinContainer;
@@ -70,39 +75,25 @@ export class GridMovement {
     );
 
     if (targetEnemy) {
-      //console.log("DEBUG: Iniciando secuencia de ataque del jugador");
-      // 1. Buscamos el sprite real dentro del contenedor
-      // En BumpkinContainer, suele ser 'sprite' o el primer elemento de la lista
-      const playerContainer = this.currentPlayer as any;
-      const visualSprite = playerContainer.sprite || playerContainer.list?.[0];
+      const player = this.currentPlayer as AttackableBumpkin;
+      player.attack();
 
-      if (visualSprite && visualSprite.setTint) {
-        // Feedback visual: Azul para confirmar que el código llega aquí
-        visualSprite.setTint(0x0000ff);
-        this.scene.time.delayedCall(200, () => visualSprite.clearTint());
-        // 2. Ejecutar animación de ataque
-        // Si tienes el método en el contenedor úsalo, si no, directo al sprite
-        if (playerContainer.playAnimation) {
-          this.currentPlayer.attack;
-        } else {
-          visualSprite.play("attack", true);
-        }
+      // 2. Feedback de color (opcional, ayuda a saber si el código llega aquí)
+      if (player.sprite) {
+        player.sprite.setTint(0x0000ff);
+        this.scene.time.delayedCall(200, () => player.sprite?.clearTint());
       }
 
+      // 3. Daño al enemigo
       targetEnemy.takeDamage(10);
-
-      // Contraataque
-      this.scene.time.delayedCall(500, () => {
-        if (targetEnemy && targetEnemy.active) {
+      // 4. Contraataque enemigo con ligero delay
+      this.scene.time.delayedCall(600, () => {
+        if (targetEnemy.active) {
           targetEnemy.attackPlayer();
-          // Animación de daño al jugador
-          if (playerContainer.playAnimation) {
-            playerContainer.playAnimation("hurt");
-          } else if (visualSprite) {
-            visualSprite.play("hurt", true);
-          }
+          player.hurt();
         }
       });
+
       return;
     }
 

@@ -1939,13 +1939,13 @@ export abstract class BaseScene extends Phaser.Scene {
       console.error("walkAudioController is undefined");
     }
 
-    if (!isInteracting) {
+    /*if (!isInteracting) {
       if (isMoving) {
         this.currentPlayer.walk();
       } else {
         this.currentPlayer.idle();
       }
-    }
+    }*/
 
     this.currentPlayer.setDepth(Math.floor(this.currentPlayer.y));
 
