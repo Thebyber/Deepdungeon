@@ -13,11 +13,12 @@ interface Props {
 export class EnemyContainer extends Phaser.GameObjects.Container {
   private player?: BumpkinContainer;
   public spriteBody: Phaser.GameObjects.Sprite;
-  private enemyType: EnemyType;
+  public enemyType: EnemyType;
   private isMoving = false;
   private tileSize = 16;
-  private stats: EnemyStats;
-  private currentHp: number;
+  public stats: EnemyStats;
+  public currentHp: number;
+  private directionFacing: "left" | "right" = "right";
 
   constructor({ x, y, scene, player, type }: Props) {
     super(scene, x, y);
@@ -37,20 +38,19 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     this.spriteBody.setOrigin(0.5, 0.5);
 
     // Ajuste de altura para que los pies toquen el suelo (opcional)
-    this.spriteBody.setY(0);
-
+    this.spriteBody.setY(-4);
     this.add(this.spriteBody);
+    this.setDepth(50);
 
     // 3. Iniciar animación
     this.playAnimationEnemies("idle");
-
     this.scene.add.existing(this);
     // Asegúrate de que tenga físicas si usas overlaps
     this.scene.physics.add.existing(this);
   }
 
   private playAnimationEnemies(
-    state: "idle" | "walk" | "attack" | "hurt" | "axe" | "death",
+    state: "idle" | "walk" | "attack" | "hurt" | "axe" | "dead",
   ) {
     const name = this.enemyType.toLowerCase(); // "skeleton"
     const key = `${name}_${state}_anim`;
@@ -58,7 +58,7 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     if (state === "idle") end_sprite = 5;
     else if (state === "attack" || state === "hurt") end_sprite = 6;
     else if (state === "walk") end_sprite = 7;
-    else if (state === "death") end_sprite = 9;
+    else if (state === "dead") end_sprite = 9;
 
     if (!this.scene.anims.exists(key)) {
       this.scene.anims.create({
@@ -94,11 +94,19 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     // DIBUJAR PUNTO DE PRUEBA (Para confirmar que ahora caen en el sitio correcto)
     //this.scene.add.circle(targetX + 8, targetY + 8, 2, 0xff0000).setDepth(2000);
 
-    const wallLayer = (this.scene as any).layers["Wall"];
+    const wallLayer = (
+      this.scene as Phaser.Scene & {
+        layers: Record<string, Phaser.Tilemaps.TilemapLayer>;
+      }
+    ).layers["Wall"];
     // 2. IMPORTANTE: Al buscar el tile, usamos la coordenada ajustada
     const hasWall =
       wallLayer && wallLayer.getTileAtWorldXY(targetX, targetY) !== null;
-    const waterLayer = (this.scene as any).layers["Water"];
+    const waterLayer = (
+      this.scene as Phaser.Scene & {
+        layers: Record<string, Phaser.Tilemaps.TilemapLayer>;
+      }
+    ).layers["Water"];
     // 2. IMPORTANTE: Al buscar el tile, usamos la coordenada ajustada
     const hasWater =
       waterLayer && waterLayer.getTileAtWorldXY(targetX, targetY) !== null;
@@ -119,7 +127,11 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
   }
 
   private checkTileCollision(x: number, y: number): boolean {
-    const wallLayer = (this.scene as any).layers["Wall"];
+    const wallLayer = (
+      this.scene as Phaser.Scene & {
+        layers: Record<string, Phaser.Tilemaps.TilemapLayer>;
+      }
+    ).layers["Wall"];
     return wallLayer
       ? wallLayer.getTileAtWorldXY(x + 1, y + 1) !== null
       : false;
@@ -139,6 +151,16 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
       ease: "Linear",
       onComplete: () => {
         this.isMoving = false;
+        // Usamos Math.round para limpiar cualquier decimal del movimiento
+        const checkX = Math.round(this.x);
+        const checkY = Math.round(this.y);
+
+        const sceneWithTraps = this.scene as Phaser.Scene & {
+          checkTrapsAt?: (x: number, y: number) => void;
+        };
+        if (sceneWithTraps.checkTrapsAt) {
+          sceneWithTraps.checkTrapsAt(checkX, checkY);
+        }
         this.playAnimationEnemies("idle");
       },
     });
@@ -181,9 +203,9 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     }
 
     // 3. SACARLO DE LA LISTA DE LA ESCENA
-    const scene = this.scene as any; // Cast temporal para acceder a la lista
+    const scene = this.scene as Phaser.Scene & { enemies?: EnemyContainer[] }; // Cast temporal para acceder a la lista
     if (scene.enemies) {
-      scene.enemies = scene.enemies.filter((e: any) => e !== this);
+      scene.enemies = scene.enemies.filter((e: EnemyContainer) => e !== this);
     }
 
     this.spriteBody.once("animationcomplete", () => {
@@ -204,15 +226,31 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
         // 2. RESTAR ENERGÍA EN EL PLAYER STATE
         // Usamos el daño que definiste en ENEMY_TYPES para cada enemigo
         PlayerState.getInstance().consumeEnergy(damageToInflict);
-        const p = this.player as any;
-        const visual = p.sprite || p.list?.[0];
+        const visual =
+          (
+            this.player as unknown as {
+              sprite?: Phaser.GameObjects.Sprite;
+              list?: Phaser.GameObjects.GameObject[];
+            }
+          ).sprite ||
+          (this.player as unknown as { list?: Phaser.GameObjects.GameObject[] })
+            .list?.[0];
         // Animación de daño al recibir el golpe
-        if (p.playAnimation) p.playAnimationEnemies("hurt");
+        const playAnimMethod = (
+          this.player as unknown as {
+            playAnimationEnemies?: (state: string) => void;
+          }
+        ).playAnimationEnemies;
+        if (playAnimMethod) {
+          playAnimMethod("hurt");
+        }
 
         // Flash rojo de daño en el sprite visual
-        if (visual && visual.setTint) {
-          visual.setTint(0xff0000);
-          this.scene.time.delayedCall(200, () => visual.clearTint());
+        if (visual && (visual as Phaser.GameObjects.Sprite).setTint) {
+          (visual as Phaser.GameObjects.Sprite).setTint(0xff0000);
+          this.scene.time.delayedCall(200, () =>
+            (visual as Phaser.GameObjects.Sprite).clearTint(),
+          );
         }
       }
       this.isMoving = false;
@@ -226,7 +264,7 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     const isPlayerToLeft = this.player.x < this.x;
 
     // 1. Actualizamos la propiedad lógica (opcional para lógica interna)
-    (this as any).directionFacing = isPlayerToLeft ? "left" : "right";
+    this.directionFacing = isPlayerToLeft ? "left" : "right";
 
     // 2. Aplicamos el cambio visual al sprite
     // Si tu sprite por defecto mira a la derecha, flipX true lo hará mirar a la izquierda

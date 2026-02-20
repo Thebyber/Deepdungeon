@@ -9,6 +9,7 @@ import { AnimationKeys } from "./DeepDungeonConstants";
 import { PlayerState } from "./lib/playerState";
 //import { ANIMATION } from "features/world/lib/animations";
 import { PickaxeContainer } from "./containers/PickaxeContainer";
+import { TrapContainer } from "./containers/TrapContainer";
 
 export const NPCS: NPCBumpkin[] = [
   {
@@ -24,6 +25,7 @@ export class DeepDungeonScene extends BaseScene {
   private gridMovement?: GridMovement;
   private enemies: EnemyContainer[] = [];
   private playerKeys?: Record<string, Phaser.Input.Keyboard.Key>;
+  private traps: TrapContainer[] = [];
   constructor() {
     super({
       name: "deep_dungeon",
@@ -37,6 +39,11 @@ export class DeepDungeonScene extends BaseScene {
 
   preload() {
     super.preload();
+    //Trampas
+    this.load.spritesheet("spikes", "world/DeepDungeonAssets/spikes.png", {
+      frameWidth: 96,
+      frameHeight: 64,
+    });
     //Enemies
     //Skeleton
     this.load.spritesheet(
@@ -142,8 +149,9 @@ export class DeepDungeonScene extends BaseScene {
       const startX = 160 + 8;
       const startY = 128 + 4;
       this.currentPlayer.setPosition(startX, startY);
-      const player = this.currentPlayer as any;
-      player.onPreUpdate = () => {};
+      const player = this
+        .currentPlayer as unknown as Phaser.Physics.Arcade.Sprite;
+      (player as unknown as { onPreUpdate: () => void }).onPreUpdate = () => {};
       // 2. Quitamos cualquier velocidad que la BaseScene intente aplicar
       const body = this.currentPlayer.body as Phaser.Physics.Arcade.Body;
       body.setVelocity(0, 0);
@@ -170,7 +178,8 @@ export class DeepDungeonScene extends BaseScene {
       // Lógica de dificultad basada en el nivel
       if (level === 1) {
         this.spawnEnemies("SKELETON", 2);
-        this.spawnEnemies("KNIGHT", 10);
+        this.spawnEnemies("KNIGHT", 1);
+        this.spawnTraps(20);
       } /*
     else if (level >= 3 && level < 5) {
         this.spawnEnemies("SLIME", 4);
@@ -218,6 +227,64 @@ export class DeepDungeonScene extends BaseScene {
     const enemy = this.add.sprite(x, y, stats.sprite);
     // Guardamos sus stats dentro del objeto para usarlos en el combate
     enemy.setData("stats", stats);
+  }
+  public checkTrapsAt(worldX: number, worldY: number) {
+    const tx = Math.floor(worldX / 16);
+    const ty = Math.floor(worldY / 16);
+
+    if (!this.traps) return;
+
+    this.traps.forEach((trap) => {
+      const trapTx = Math.floor(trap.x / 16);
+      const trapTy = Math.floor(trap.y / 16);
+
+      if (tx === trapTx && ty === trapTy) {
+        // 1. ACTIVAR ANIMACIÓN VISUAL
+        trap.activate(PlayerState.getInstance().getLevel());
+
+        // 2. ¿ES EL JUGADOR?
+        // Comparamos si las coordenadas recibidas son las del jugador
+        if (this.currentPlayer) {
+          const pTx = Math.floor(this.currentPlayer.x / 16);
+          const pTy = Math.floor(this.currentPlayer.y / 16);
+
+          if (tx === pTx && ty === pTy) {
+            // Solo si el jugador está en ese tile, le quitamos energía
+            const damage = PlayerState.getInstance().getLevel() <= 5 ? 2 : 5;
+            PlayerState.getInstance().consumeEnergy(damage);
+            if (this.currentPlayer && this.currentPlayer.hurt)
+              this.currentPlayer.hurt();
+            return; // Salimos para no procesar enemigos si ya golpeó al player
+          }
+        }
+
+        // 3. ¿ES UN ENEMIGO?
+        this.enemies.forEach((enemy: EnemyContainer) => {
+          const eTx = Math.floor(enemy.x / 16);
+          const eTy = Math.floor(enemy.y / 16);
+
+          if (tx === eTx && ty === eTy) {
+            let trapDamageToEnemy = 0;
+
+            // Aquí decides el daño según el tipo de enemigo
+            switch (enemy.enemyType) {
+              case "SKELETON":
+                trapDamageToEnemy = 1; // El esqueleto es hueso, le duele menos
+                break;
+              case "KNIGHT":
+                trapDamageToEnemy = 0; // El zombie es blando, le duele más
+                break;
+              default:
+                trapDamageToEnemy = 2; // Daño por defecto
+            }
+
+            if (enemy.takeDamage) {
+              enemy.takeDamage(trapDamageToEnemy);
+            }
+          }
+        });
+      }
+    });
   }
   update() {
     // Anulamos velocidad por si acaso
@@ -282,7 +349,9 @@ export class DeepDungeonScene extends BaseScene {
   }
   private spawnPickaxeRandomly() {
     // 1. Obtener la capa de suelo
-    const groundLayer = this.map.getLayer("Ground").tilemapLayer;
+    const layer = this.map.getLayer("Ground");
+    if (!layer || !layer.tilemapLayer) return;
+    const groundLayer = layer.tilemapLayer;
 
     // 2. Filtrar todos los tiles que no sean nulos (donde hay suelo)
     // También podrías filtrar por IDs específicos de tiles si tienes "agua" o "vacío"
@@ -312,7 +381,9 @@ export class DeepDungeonScene extends BaseScene {
     }
   }
   private spawnEnemies(type: EnemyType, count: number) {
-    const groundLayer = this.map.getLayer("Ground").tilemapLayer;
+    const layer = this.map.getLayer("Ground");
+    if (!layer || !layer.tilemapLayer) return;
+    const groundLayer = layer.tilemapLayer;
     const validTiles = groundLayer.filterTiles(
       (tile: Phaser.Tilemaps.Tile) => tile.index !== -1,
     );
@@ -352,11 +423,29 @@ export class DeepDungeonScene extends BaseScene {
       if (spawned >= count) break;
     }
   }
-  private goToNextFloor() {
-    // 1. Aplicamos la recompensa y subimos nivel en el estado
-    PlayerState.getInstance().nextLevel();
+  private spawnTraps(quantity: number) {
+    // 1. Limpiamos y aseguramos que el array existe
+    this.traps = [];
+    const layer = this.map.getLayer("Ground");
+    if (!layer || !layer.tilemapLayer) return;
+    const groundLayer = layer.tilemapLayer;
+    const validTiles = groundLayer.filterTiles(
+      (tile: Phaser.Tilemaps.Tile) => tile.index > 0,
+    );
 
-    // 2. Reiniciamos la escena para generar el nuevo mapa y nuevos enemigos
-    this.scene.restart();
+    for (let i = 0; i < quantity; i++) {
+      const randomIndex = Phaser.Math.Between(0, validTiles.length - 1);
+      const tile = validTiles[randomIndex];
+
+      // 2. Calculamos posición real
+      const x = groundLayer.tileToWorldX(tile.x) + 8;
+      const y = groundLayer.tileToWorldY(tile.y) + 8;
+
+      // 3. CREAR Y GUARDAR
+      const trap = new TrapContainer(this, x, y);
+      this.traps.push(trap); // <--- ESTO ES LO QUE FALTA
+
+      validTiles.splice(randomIndex, 1);
+    }
   }
 }

@@ -1,6 +1,23 @@
+/* eslint-disable prettier/prettier */
 import { BumpkinContainer } from "src/features/world/containers/BumpkinContainer";
 import { PlayerState } from "../lib/playerState";
 import { PLAYER_DAMAGE } from "../DeepDungeonConstants";
+
+interface Enemy {
+  x: number;
+  y: number;
+  active: boolean;
+  getCurrentHp(): number;
+  takeDamage(damage: number): void;
+  attackPlayer(): void;
+}
+
+interface SceneWithEnemies extends Phaser.Scene {
+  enemies: Enemy[];
+  checkTrapsAt(x: number, y: number): void;
+  packetSentAt?: number;
+  layers: Record<string, Phaser.Tilemaps.TilemapLayer>;
+}
 
 export class GridMovement {
   private scene: Phaser.Scene;
@@ -61,17 +78,21 @@ export class GridMovement {
       return;
     }
     //Comprobamos si hay agua
-    const waterLayer = (this.scene as any).layers["Water"];
+    const waterLayer = (
+      this.scene as Phaser.Scene & {
+        layers: Record<string, Phaser.Tilemaps.TilemapLayer>;
+      }
+    ).layers["Water"];
     // Usamos +8 y +8 para mirar el centro del tile
     const isWater =
       waterLayer?.getTileAtWorldXY(nextGridX + 8, nextGridY + 8) !== null;
 
     // 4. COMPROBAR ENEMIGOS Y ATACAR
-    const enemies = (this.scene as any).enemies || [];
+    const enemies = (this.scene as SceneWithEnemies).enemies || [];
 
     // Buscamos si hay un enemigo específico en la celda de destino
     const targetEnemy = enemies.find(
-      (e: any) =>
+      (e: Enemy) =>
         Math.floor(e.x / 16) * 16 === nextGridX &&
         Math.floor(e.y / 16) * 16 === nextGridY,
     );
@@ -122,9 +143,14 @@ export class GridMovement {
       ease: "Linear",
       onComplete: () => {
         this.isMoving = false;
+        // Enviamos la posición X e Y tal cual las tiene el contenedor
+        (this.scene as SceneWithEnemies).checkTrapsAt(
+          this.currentPlayer.x,
+          this.currentPlayer.y,
+        );
         // Sincronización MMO Sunflower Land (opcional según tu base)
-        if ((this.scene as any).packetSentAt !== undefined) {
-          (this.scene as any).packetSentAt = 0;
+        if ((this.scene as SceneWithEnemies).packetSentAt !== undefined) {
+          (this.scene as SceneWithEnemies).packetSentAt = 0;
         }
         this.scene.events.emit("PLAYER_MOVED");
       },
@@ -137,49 +163,5 @@ export class GridMovement {
     //this.scene.add.circle(gridX + 8, gridY + 4, 2, 0x00ff00).setDepth(2000);
     const tile = wallLayer.getTileAtWorldXY(gridX + 8, gridY + 4);
     return tile !== null;
-  }
-  private checkToolInteraction(nextX: number, nextY: number): boolean {
-    const playerState = PlayerState.getInstance();
-    const toolsLayer = (this.scene as any).layers["Tools"]; // Tu capa de objetos
-
-    // Buscamos si hay un objeto en esa posición
-    const object = toolsLayer?.objects.find(
-      (obj) => obj.x === nextX && obj.y === nextY,
-    );
-
-    if (!object) return false;
-
-    if (object.properties.find((p) => p.name === "type")?.value === "rock") {
-      if (!playerState.stats.hasPickaxe) {
-        // MOSTRAR CARTEL: "Necesitas un pico"
-        this.scene.events.emit("SHOW_TOAST", "Necesitas un pico");
-        return true; // Bloquea el movimiento
-      }
-
-      // Si tiene el pico, gasta energía y pica
-      if (playerState.consumeEnergy(5)) {
-        const rockId = `${nextX}_${nextY}`;
-        const currentHits = (this.rockHits.get(rockId) || 0) + 1;
-        this.rockHits.set(rockId, currentHits);
-
-        // Animación de golpe (opcional: sacudir sprite)
-        this.scene.tweens.add({
-          targets: this.currentPlayer,
-          x: "+=2",
-          duration: 50,
-          yoyo: true,
-          repeat: 2,
-        });
-
-        if (currentHits >= 3) {
-          playerState.addStone(1);
-          this.scene.events.emit("SHOW_TOAST", "+1 Piedra");
-          // Aquí podrías eliminar el objeto visualmente o cambiar el tile
-          this.rockHits.delete(rockId);
-        }
-      }
-      return true; // Bloquea el movimiento porque estamos picando
-    }
-    return false;
   }
 }

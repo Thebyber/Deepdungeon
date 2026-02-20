@@ -13,7 +13,7 @@ export const EnergyStats: React.FC = () => {
     const handleUpdate = () => setEnergy(playerState.getEnergy());
     window.addEventListener("energyChanged", handleUpdate);
     return () => window.removeEventListener("energyChanged", handleUpdate);
-  }, []);
+  }, [playerState]);
 
   const percentage = Math.max(0, Math.min(100, (energy / maxEnergy) * 100));
 

@@ -15,7 +15,7 @@ export const ExhaustedAlert: React.FC = () => {
 
     window.addEventListener("energyChanged", handleUpdate);
     return () => window.removeEventListener("energyChanged", handleUpdate);
-  }, []);
+  }, [playerState]);
 
   if (!isExhausted) return null;
 
