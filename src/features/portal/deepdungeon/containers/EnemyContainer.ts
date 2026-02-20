@@ -1,5 +1,6 @@
 import { BumpkinContainer } from "features/world/containers/BumpkinContainer";
-import { EnemyType } from "../lib/Enemies";
+import { EnemyType, ENEMY_TYPES, EnemyStats } from "../lib/Enemies";
+import { PlayerState } from "../lib/playerState";
 
 interface Props {
   x: number;
@@ -15,6 +16,8 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
   private enemyType: EnemyType;
   private isMoving = false;
   private tileSize = 16;
+  private stats: EnemyStats;
+  private currentHp: number;
 
   constructor({ x, y, scene, player, type }: Props) {
     super(scene, x, y);
@@ -22,37 +25,49 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     this.player = player;
     this.enemyType = type;
 
-    // Ajuste visual: Skeleton (96x64), Slime (ajustar si es distinto)
-    const assetKey = `${this.enemyType.toLowerCase()}_idle`;
-    this.spriteBody = this.scene.add
-      .sprite(0, -12, assetKey)
-      .setOrigin(0.5, 0.5);
+    // 1. Cargar estadísticas una sola vez
+    this.stats = ENEMY_TYPES[this.enemyType];
+    this.currentHp = this.stats.hp; // Aquí debería ser 2 según tu Enemies.ts
 
-    this.spriteBody = scene.add.sprite(0, 0, `${type.toLowerCase()}_idle`);
-    // ESTO ES LO IMPORTANTE:
-    // Si el esqueleto está "una celda arriba", bajamos el sprite
-    // para que sus pies toquen el suelo real del grid.
+    // 2. CREAR EL SPRITE UNA SOLA VEZ
+    // Usamos el nombre base que definiste en Enemies.ts ("skeleton")
+    const assetKey = `${this.stats.sprite.toLowerCase()}_idle`;
+
+    this.spriteBody = this.scene.add.sprite(0, 0, assetKey);
     this.spriteBody.setOrigin(0.5, 0.5);
-    this.spriteBody.setY(0); // Prueba con -4 o -8 para centrarlo visualmente en el tile
+
+    // Ajuste de altura para que los pies toquen el suelo (opcional)
+    this.spriteBody.setY(0);
+
     this.add(this.spriteBody);
+
+    // 3. Iniciar animación
     this.playAnimationEnemies("idle");
+
     this.scene.add.existing(this);
+    // Asegúrate de que tenga físicas si usas overlaps
+    this.scene.physics.add.existing(this);
   }
 
   private playAnimationEnemies(
-    state: "idle" | "walk" | "attack" | "hurt" | "axe" | "dead",
+    state: "idle" | "walk" | "attack" | "hurt" | "axe" | "death",
   ) {
     const name = this.enemyType.toLowerCase(); // "skeleton"
     const key = `${name}_${state}_anim`;
+    let end_sprite = 6;
+    if (state === "idle") end_sprite = 5;
+    else if (state === "attack" || state === "hurt") end_sprite = 6;
+    else if (state === "walk") end_sprite = 7;
+    else if (state === "death") end_sprite = 9;
 
     if (!this.scene.anims.exists(key)) {
       this.scene.anims.create({
         key: key,
         frames: this.scene.anims.generateFrameNumbers(`${name}_${state}`, {
           start: 0,
-          end: 6, // Para los strip7.png
+          end: end_sprite, // Para los strip7.png
         }),
-        frameRate: 14, // Un poco más rápido para que el combate sea ágil
+        frameRate: 10, // Un poco más rápido para que el combate sea ágil
         repeat: state === "idle" || state === "walk" ? -1 : 0,
       });
     }
@@ -62,14 +77,11 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
   public updateMovement() {
     if (!this.player || this.isMoving) return;
 
-    // 1. Bajamos la posición lógica 16px para que coincida con el mapa visual
-    const OFFSET_MAPA_Y = 0;
-
     const curX = Math.floor(this.x / 16) * 16;
-    const curY = Math.floor((this.y + OFFSET_MAPA_Y) / 16) * 16; // <--- Ajuste aquí
+    const curY = Math.floor(this.y / 16) * 16; // <--- Ajuste aquí
 
     const pX = Math.floor(this.player.x / 16) * 16;
-    const pY = Math.floor((this.player.y + OFFSET_MAPA_Y) / 16) * 16; // <--- Ajuste aquí
+    const pY = Math.floor(this.player.y / 16) * 16; // <--- Ajuste aquí
 
     let dx = 0,
       dy = 0;
@@ -80,14 +92,18 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
     const targetY = curY + dy;
 
     // DIBUJAR PUNTO DE PRUEBA (Para confirmar que ahora caen en el sitio correcto)
-    this.scene.add.circle(targetX + 8, targetY + 8, 2, 0xff0000).setDepth(2000);
+    //this.scene.add.circle(targetX + 8, targetY + 8, 2, 0xff0000).setDepth(2000);
 
     const wallLayer = (this.scene as any).layers["Wall"];
     // 2. IMPORTANTE: Al buscar el tile, usamos la coordenada ajustada
     const hasWall =
       wallLayer && wallLayer.getTileAtWorldXY(targetX, targetY) !== null;
+    const waterLayer = (this.scene as any).layers["Water"];
+    // 2. IMPORTANTE: Al buscar el tile, usamos la coordenada ajustada
+    const hasWater =
+      waterLayer && waterLayer.getTileAtWorldXY(targetX, targetY) !== null;
 
-    if (hasWall) {
+    if (hasWall || hasWater || (targetX === pX && targetY === pY)) {
       //console.log("BLOQUEADO: Ahora el punto rojo debería estar sobre una piedra");
       return;
     }
@@ -111,6 +127,8 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
 
   private move(dx: number, dy: number) {
     this.isMoving = true;
+    // GIRAR HACIA EL JUGADOR ANTES DE CAMINARw
+    this.facePlayer();
     this.playAnimationEnemies("walk");
 
     this.scene.tweens.add({
@@ -127,21 +145,51 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
   }
   // El enemigo recibe daño
   public takeDamage(amount: number) {
-    if (this.isMoving) return; // Evitar bugs si ya está en una animación
+    if (this.isMoving || this.currentHp <= 0) return; // Evitar bugs si ya está en una animación
     this.isMoving = true;
     this.playAnimationEnemies("hurt");
     // Flash rojo para feedback visual inmediato
     this.spriteBody.setTint(0xff0000);
+    // Restar vida usando el daño recibido
+    this.currentHp -= amount;
+    //console.log(`Enemigo ${this.enemyType} golpeado. Vida restante: ${this.currentHp}`);
 
-    this.spriteBody.once("animationcomplete", () => {
+    // FEEDBACK VISUAL
+    this.spriteBody.setTint(0xff0000); // Se pone rojo
+    this.playAnimationEnemies("hurt");
+
+    // USAR UN DELAY PARA QUITAR EL ROJO Y COMPROBAR MUERTE
+    this.scene.time.delayedCall(300, () => {
       this.spriteBody.clearTint();
-      this.isMoving = false;
-      this.playAnimationEnemies("idle");
-      // Aquí podrías restar vida: this.hp -= amount;
-      //console.log("Enemigo herido, vuelve a idle");
+      if (this.currentHp <= 0) {
+        this.die(); // Llamamos a la función de morir
+      } else {
+        this.isMoving = false; // Permitimos que vuelva a actuar
+        this.playAnimationEnemies("idle");
+      }
     });
   }
+  private die() {
+    this.isMoving = true;
 
+    // 1. Corregir el nombre de la animación (usar 'death' no 'dead')
+    this.playAnimationEnemies("dead");
+
+    // 2. Desactivar físicas inmediatamente para que el jugador no choque con un cadáver
+    if (this.body) {
+      (this.body as Phaser.Physics.Arcade.Body).enable = false;
+    }
+
+    // 3. SACARLO DE LA LISTA DE LA ESCENA
+    const scene = this.scene as any; // Cast temporal para acceder a la lista
+    if (scene.enemies) {
+      scene.enemies = scene.enemies.filter((e: any) => e !== this);
+    }
+
+    this.spriteBody.once("animationcomplete", () => {
+      this.destroy(); // Elimina el objeto del motor de Phaser
+    });
+  }
   // El enemigo te ataca
   public attackPlayer() {
     if (this.isMoving) return;
@@ -150,6 +198,12 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
 
     this.spriteBody.once("animationcomplete", () => {
       if (this.player) {
+        // 1. OBTENER EL DAÑO DE LA CONFIGURACIÓN (this.stats.damage)
+        const damageToInflict = this.stats.damage;
+
+        // 2. RESTAR ENERGÍA EN EL PLAYER STATE
+        // Usamos el daño que definiste en ENEMY_TYPES para cada enemigo
+        PlayerState.getInstance().consumeEnergy(damageToInflict);
         const p = this.player as any;
         const visual = p.sprite || p.list?.[0];
         // Animación de daño al recibir el golpe
@@ -164,5 +218,23 @@ export class EnemyContainer extends Phaser.GameObjects.Container {
       this.isMoving = false;
       this.playAnimationEnemies("idle");
     });
+  }
+  private facePlayer() {
+    if (!this.player) return;
+
+    // Calculamos si el jugador está a la izquierda o derecha del enemigo
+    const isPlayerToLeft = this.player.x < this.x;
+
+    // 1. Actualizamos la propiedad lógica (opcional para lógica interna)
+    (this as any).directionFacing = isPlayerToLeft ? "left" : "right";
+
+    // 2. Aplicamos el cambio visual al sprite
+    // Si tu sprite por defecto mira a la derecha, flipX true lo hará mirar a la izquierda
+    if (this.spriteBody) {
+      this.spriteBody.setFlipX(isPlayerToLeft);
+    }
+  }
+  public getCurrentHp() {
+    return this.currentHp;
   }
 }

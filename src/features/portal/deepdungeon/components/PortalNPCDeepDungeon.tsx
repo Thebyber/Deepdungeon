@@ -55,4 +55,3 @@ export const PortalNPCDeepDungeon: React.FC<Props> = ({ onClose }) => {
     </CloseButtonPanel>
   );
 };
-

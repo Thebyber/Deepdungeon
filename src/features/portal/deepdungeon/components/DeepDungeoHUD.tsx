@@ -5,8 +5,9 @@ import { PIXEL_SCALE } from "features/game/lib/constants";
 import { SUNNYSIDE } from "assets/sunnyside";
 import { goHome } from "../../lib/portalUtil";
 import { HudContainer } from "components/ui/HudContainer";
-
+import { EnergyStats } from "./EnergyBar";
 import { Inventory } from "features/island/hud/components/inventory/Inventory";
+import { ExhaustedAlert } from "./ExhaustedAlert";
 
 export const DeepDungeonHUD: React.FC = () => {
   const { portalService } = useContext(PortalContext);
@@ -19,13 +20,27 @@ export const DeepDungeonHUD: React.FC = () => {
   return (
     <>
       <HudContainer>
+        <div
+          className="fixed z-50 pointer-events-none" // pointer-events-none para no bloquear clics en el juego
+          style={{
+            top: `${PIXEL_SCALE * 6}px`,
+            left: `${PIXEL_SCALE * 6}px`,
+          }}
+        >
+          <div className="pointer-events-auto">
+            {" "}
+            {/* Reactivamos eventos solo para el cuadro */}
+            <EnergyStats />
+          </div>
+        </div>
+        {/* Cartel de Cansancio */}
+        <ExhaustedAlert />
         <Inventory
           state={portalState.context.state}
           isFarming={false}
           isFullUser={false}
           hideActions
         />
-
         <div
           className="fixed z-50 flex flex-col justify-between"
           style={{

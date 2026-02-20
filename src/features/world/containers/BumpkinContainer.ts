@@ -547,7 +547,7 @@ export class BumpkinContainer extends Phaser.GameObjects.Container {
 
       swimmingLoader.on(Phaser.Loader.Events.COMPLETE, () => {
         this.createSwimmingAnimation();
-        swimmingLoader.removeAllListeners();
+        //swimmingLoader.removeAllListeners();
       });
     }
 
@@ -790,7 +790,7 @@ export class BumpkinContainer extends Phaser.GameObjects.Container {
       frameRate: 10,
     });
   }
-  private createSwimmingAnimation(frameRate = 12) {
+  private createSwimmingAnimation() {
     if (!this.scene || !this.scene.anims) return;
     this.scene.anims.create({
       key: this.swimmingAnimationKey,
@@ -805,7 +805,7 @@ export class BumpkinContainer extends Phaser.GameObjects.Container {
       frameRate: 10,
     });
   }
-  private createHammeringAnimation(frameRate = 12) {
+  private createHammeringAnimation() {
     if (!this.scene || !this.scene.anims) return;
     this.scene.anims.create({
       key: this.hammeringAnimationKey,

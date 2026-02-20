@@ -13,6 +13,8 @@ export type AnimationKeys =
   | "dead";
 
 export const PLAYER_DAMAGE = 1;
+// Recompensa por avanzar de nivel
+export const REWARD_ENERGY = 15;
 
 export const onAnimationComplete = (
   object: Phaser.GameObjects.Sprite,
