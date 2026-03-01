@@ -3,10 +3,14 @@ export interface EnemyStats {
   hp: number;
   damage: number;
   defense: number;
+  trapDamage: number;
   sprite: string;
+  isAggressive: boolean;
+  isRanged: boolean;
+  damageAoE?: number; // Solo para enemigos con ataque de área
 }
 
-export type EnemyType = "SKELETON" | "KNIGHT";
+export type EnemyType = "SKELETON" | "KNIGHT" | "FRANKENSTEIN" | "DEVIL";
 
 export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
   SKELETON: {
@@ -14,14 +18,42 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
     hp: 2,
     damage: 2,
     defense: 2,
+    trapDamage: 1,
     sprite: "skeleton",
+    isAggressive: false,
+    isRanged: false,
   },
   KNIGHT: {
     name: "knight",
     hp: 4,
     damage: 4,
     defense: 2,
+    trapDamage: 0,
     sprite: "knight",
+    isAggressive: false,
+    isRanged: false,
+  },
+  FRANKENSTEIN: {
+    name: "frankenstein",
+    hp: 10,
+    damage: 5,
+    defense: 4,
+    trapDamage: 1,
+    sprite: "frankenstein",
+    isAggressive: true,
+    isRanged: false,
+    damageAoE: 1,
+  },
+  DEVIL: {
+    name: "devil",
+    hp: 5,
+    damage: 2,
+    defense: 2,
+    trapDamage: 1,
+    sprite: "devil",
+    isAggressive: true,
+    isRanged: true,
+    damageAoE: 1, // Daño adicional a los tiles adyacentes
   },
 };
 

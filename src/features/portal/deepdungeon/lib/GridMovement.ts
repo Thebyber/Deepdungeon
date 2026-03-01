@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { BumpkinContainer } from "src/features/world/containers/BumpkinContainer";
 import { PlayerState } from "../lib/playerState";
-import { PLAYER_DAMAGE } from "../DeepDungeonConstants";
+import { CrystalContainer } from "../containers/CrystalContainer";
 
 interface Enemy {
   x: number;
@@ -14,7 +14,9 @@ interface Enemy {
 
 interface SceneWithEnemies extends Phaser.Scene {
   enemies: Enemy[];
+  crystals: CrystalContainer[];
   checkTrapsAt(x: number, y: number): void;
+  handleMining(crystal: CrystalContainer): void;
   packetSentAt?: number;
   layers: Record<string, Phaser.Tilemaps.TilemapLayer>;
 }
@@ -87,6 +89,27 @@ export class GridMovement {
     const isWater =
       waterLayer?.getTileAtWorldXY(nextGridX + 8, nextGridY + 8) !== null;
 
+    // 2. COMPROBAR CRISTALES (Bloqueo y Minado)
+
+    const scene = this.scene as SceneWithEnemies;
+
+    // Usamos Array.isArray para estar 100% seguros antes de llamar a .find()
+    const crystals = Array.isArray(scene.crystals) ? scene.crystals : [];
+
+    const targetCrystal = crystals.find(
+      (c) =>
+        Math.floor(c.x / 16) * 16 === nextGridX &&
+        Math.floor(c.y / 16) * 16 === nextGridY,
+    );
+
+    if (targetCrystal) {
+      // Llamamos a la lógica de minado de la escena
+      // (Debemos castear a la escena real para que TS reconozca handleMining)
+      scene.handleMining(targetCrystal);
+
+      // BLOQUEAMOS EL MOVIMIENTO: No dejamos que haga el tween
+      return;
+    }
     // 4. COMPROBAR ENEMIGOS Y ATACAR
     const enemies = (this.scene as SceneWithEnemies).enemies || [];
 
@@ -108,7 +131,7 @@ export class GridMovement {
       }*/
 
       // 3. Daño al enemigo
-      targetEnemy.takeDamage(PLAYER_DAMAGE);
+      targetEnemy.takeDamage(PlayerState.getInstance().stats.attack);
       // 4. Contraataque enemigo con ligero delay
       this.scene.time.delayedCall(800, () => {
         // Comprobamos active (Phaser) y currentHp (tu lógica)
